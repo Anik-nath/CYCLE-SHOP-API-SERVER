@@ -24,6 +24,7 @@ async function run() {
     const cycleCollection = database.collection("cycles");
     const orderCollection = database.collection("orders");
     const userCollection = database.collection("users");
+    const reviewCollection = database.collection("reviews");
 
     //all data
     app.get("/cycles", async(req, res) => {
@@ -40,6 +41,13 @@ async function run() {
         res.json(oneBooking);
     });
 
+    //delete
+    app.delete("/cycles/:id",async(req,res)=>{
+      const id = req.params.id;
+      const query = {_id: ObjectId(id)}
+      const oneDelete = await cycleCollection.deleteOne(query);
+      res.json(oneDelete);
+    })
      
     //order insert into database
     app.post('/orders',async(req,res)=>{
@@ -63,6 +71,20 @@ async function run() {
       const result = await userCollection.insertOne(User)
       res.json(result);
     })
+
+    //review
+    app.post('/reviews',async(req,res)=>{
+      const review = req.body;
+      const result = await reviewCollection.insertOne(review)
+      res.json(result);
+    })
+
+    //load review
+    app.get("/reviews", async(req, res) => {
+      const cursor = reviewCollection.find({});
+      const allReview = await cursor.toArray();
+      res.send(allReview);
+    });
 
 //upsert
 app.put('/users',async(req,res)=>{
@@ -92,7 +114,9 @@ app.put('/users/admin',async (req,res)=>{
         isAdmin = true;
       }
       res.json({admin : isAdmin});
-    }) 
+  }) 
+
+
 
   } finally {
     //   await client.close();
