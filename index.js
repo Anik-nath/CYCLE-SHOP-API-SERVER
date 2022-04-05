@@ -2,6 +2,10 @@ const express = require("express");
 const { MongoClient } = require("mongodb");
 const app = express();
 var cors = require("cors");
+// for stripe 
+const bodyparser = require('body-parser')
+const stripe = require("stripe")("sk_test_51JvoRLD2rkmj0KzmboKYKA0JMxjOu0GEOB1g0LvUGqihP5hOXr4KGTZD3NVfKEmjXt2EVYpZM5YRE4ALg1sPJqAn00isUy4mVk");
+const uuid = require("uuid").v4;
 require("dotenv").config();
 const ObjectId = require("mongodb").ObjectId;
 
@@ -9,8 +13,15 @@ const port = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+//for stripe
+app.use(bodyparser.urlencoded({ extended: false }))
+app.use(bodyparser.json())
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.8qp7t.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
+var uri = `mongodb://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0-shard-00-00.8qp7t.mongodb.net:27017,cluster0-shard-00-01.8qp7t.mongodb.net:27017,cluster0-shard-00-02.8qp7t.mongodb.net:27017/myFirstDatabase?ssl=true&replicaSet=atlas-lnce8f-shard-0&authSource=admin&retryWrites=true&w=majority`;
+console.log(uri);
+
+
+// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.8qp7t.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -25,6 +36,28 @@ async function run() {
     const orderCollection = database.collection("orders");
     const userCollection = database.collection("users");
     const reviewCollection = database.collection("reviews");
+    const cartCollection = database.collection("cartList");
+    const subscribeEmail = database.collection("subscribeEmail");
+
+    //all cart data
+    app.get("/cartList", async (req, res) => {
+      const cursor = cartCollection.find({});
+      const allcycle = await cursor.toArray();
+      res.send(allcycle);
+    });
+
+    app.post("/cartList", async (req, res) => {
+      const newCart = req.body;
+      console.log(newCart);
+      const addCart = await cartCollection.insertOne(newCart);
+      res.send(addCart);
+    });
+    // -------subscribed email--------//
+    app.post("/subscribeEmail", async (req, res) => {
+      const subscribeData = req.body;
+      const result = await subscribeEmail.insertOne(subscribeData);
+      res.send(result);
+    });
 
     //all data
     app.get("/cycles", async (req, res) => {
@@ -54,6 +87,13 @@ async function run() {
       const newOrder = req.body;
       const result = await orderCollection.insertOne(newOrder);
       res.send(result);
+    });
+    //delete orders
+    app.delete("/orders/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const oneDelete = await orderCollection.deleteOne(query);
+      res.json(oneDelete);
     });
     //add product
     app.post("/cycles", async (req, res) => {
@@ -119,6 +159,55 @@ async function run() {
         isAdmin = true;
       }
       res.json({ admin: isAdmin });
+    });
+     // -------------------stripe-----------------
+     app.get("/", (req, res) => {
+      res.send("Add your Stripe Secret Key to the .require('stripe') statement!");
+    });
+    app.post("/checkout", async (req, res) => {
+      console.log("Request:", req.body);
+     
+      let error;
+      let status;
+      try {
+        const { product, token } = req.body;
+     
+        const customer = await stripe.customers.create({
+          email: token.email,
+          source: token.id,
+        });
+     
+        const idempotency_key = uuid();
+        const charge = await stripe.charges.create(
+          {
+            amount: product.price * 100,
+            currency: "usd",
+            customer: customer.id,
+            receipt_email: token.email,
+            description: `Purchased the ${product.name}`,
+            shipping: {
+              name: token.card.name,
+              address: {
+                line1: token.card.address_line1,
+                line2: token.card.address_line2,
+                city: token.card.address_city,
+                country: token.card.address_country,
+                postal_code: token.card.address_zip,
+              },
+            },
+          },
+          {
+            idempotency_key,
+          }
+        );
+        console.log("Charge:", { charge });
+        status = "success";
+      } catch (error) {
+        console.error("Error:", error);
+        status = "failure";
+      }
+     
+      res.json({ error, status });
     });
   } finally {
     //   await client.close();
