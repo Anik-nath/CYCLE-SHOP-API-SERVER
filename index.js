@@ -12,16 +12,15 @@ const ObjectId = require("mongodb").ObjectId;
 const port = process.env.PORT || 5000;
 
 app.use(cors());
+app.use(cors({origin: "*",}))
 app.use(express.json());
 //for stripe
 app.use(bodyparser.urlencoded({ extended: false }))
 app.use(bodyparser.json())
 
-var uri = `mongodb://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0-shard-00-00.8qp7t.mongodb.net:27017,cluster0-shard-00-01.8qp7t.mongodb.net:27017,cluster0-shard-00-02.8qp7t.mongodb.net:27017/myFirstDatabase?ssl=true&replicaSet=atlas-lnce8f-shard-0&authSource=admin&retryWrites=true&w=majority`;
-console.log(uri);
+var uri = `mongodb://${process.env.DB_USER}:${process.env.DB_PASS}@ac-fpqkjij-shard-00-00.xbk29ye.mongodb.net:27017,ac-fpqkjij-shard-00-01.xbk29ye.mongodb.net:27017,ac-fpqkjij-shard-00-02.xbk29ye.mongodb.net:27017/?ssl=true&replicaSet=atlas-qjfq6h-shard-0&authSource=admin&retryWrites=true&w=majority&appName=Cluster0`;
+// console.log(uri); 
 
-
-// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.8qp7t.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
